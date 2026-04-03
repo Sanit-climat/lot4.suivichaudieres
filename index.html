@@ -2755,18 +2755,41 @@ function openBailleurView() {
   Object.entries(byRes).forEach(([resNom, locs]) => {
     let rows = '';
     locs.forEach(loc => {
-      const k = 'r' + loc._resIdx + '_l' + loc._locIdx;
-      const done = (window.dbData?.[k] && window.dbData[k].done);
-      const statut = done ? '✅ Fait' : '⏳ En attente';
+      // Clé Firebase correcte selon le type de locataire
+      const k = loc._isNew ? loc._key : ('r' + loc._resIdx + '_l' + loc._locIdx);
+      const entry = window.dbData?.[k] || {};
+      const done = !!entry.done;
+      const dateRdv = entry.date || '';
+
+      // Prochain entretien : dans locOverrides ou calculé +1 an
+      const locOver = (window.locOverrides || {})[k] || {};
+      let prochainDate = locOver.dateProchainEntretien || '';
+      if (!prochainDate && dateRdv) {
+        const dp = parseDateFlex(dateRdv);
+        if (dp) { dp.setFullYear(dp.getFullYear() + 1); prochainDate = dp.toISOString().slice(0,10); }
+      }
+
+      // Statut avec date
+      let statutCell = done
+        ? `<span style="color:#27ae60;font-weight:700">✅ Fait</span>${dateRdv ? '<br><small style="color:#555">le ' + dateRdv + '</small>' : ''}`
+        : '<span style="color:#e67e22">⏳ En attente</span>';
+
       const s = suiviData[getSuiviKey(loc)] || {};
 
-      // Dernière intervention
+      // Dernière intervention — comparaison en Number pour éviter type mismatch
+      const ri = Number(loc._resIdx);
+      const li = Number(loc._locIdx);
       const intervs = Object.values(window.intervData || {})
-        .filter(d => d.resIdx === loc._resIdx && d.locIdx === loc._locIdx)
+        .filter(d => Number(d.resIdx) === ri && Number(d.locIdx) === li)
         .sort((a,b) => (b.date||'').localeCompare(a.date||''));
       const lastInterv = intervs[0];
       const intervCell = lastInterv
-        ? `${lastInterv.date || '—'}<br><small>${RESULTAT_LABELS[lastInterv.resultat] || '—'}</small>`
+        ? `<b>${lastInterv.date || '—'}</b><br><small>${RESULTAT_LABELS[lastInterv.resultat] || '—'}</small>${lastInterv.comment ? '<br><small style="color:#888">' + lastInterv.comment + '</small>' : ''}`
+        : '—';
+
+      // Prochain entretien formaté
+      const prochainCell = prochainDate
+        ? `<span style="color:#1a5276;font-weight:600">${prochainDate}</span>`
         : '—';
 
       rows += `<tr>
@@ -2774,8 +2797,9 @@ function openBailleurView() {
         <td><b>${loc.nom}</b></td>
         <td style="font-size:11px">${[loc.bat?'Bât '+loc.bat:'', loc.lgt?'N°'+loc.lgt:'', loc.type||''].filter(Boolean).join(' ')}</td>
         <td>${loc.tel || '—'}</td>
-        <td>${statut}</td>
+        <td>${statutCell}</td>
         <td>${intervCell}</td>
+        <td>${prochainCell}</td>
         <td>${s.appel || '—'}</td>
         <td>${s.sms || '—'}</td>
         <td>${s.relance || '—'}</td>
@@ -2788,7 +2812,7 @@ function openBailleurView() {
       <table>
         <thead><tr>
           <th>Réf.</th><th>Locataire</th><th>Appt.</th><th>Tél.</th>
-          <th>Statut entretien</th><th>Dernière intervention</th>
+          <th>Statut entretien</th><th>Dernière intervention</th><th>Prochain entretien</th>
           <th>Appel le</th><th>SMS le</th><th>Relance gest.</th><th>Remarques</th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -2814,6 +2838,7 @@ function openBailleurView() {
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   thead th { background: #1a5276; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
   tbody tr:nth-child(even) { background: #f7fafc; }
+  tbody tr td:nth-child(5) { white-space: nowrap; }
   tbody td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   .footer { margin-top: 30px; font-size: 10px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
   @media print { body { padding: 0; } .no-print { display: none; } }
