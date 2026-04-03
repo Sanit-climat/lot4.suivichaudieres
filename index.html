@@ -235,6 +235,40 @@ body.readonly .readonly-badge { display:flex !important }
 .legend-item { display:flex; align-items:center; gap:6px; }
 .legend-dot { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
 
+
+/* ===== AUTOCOMPLETE RÉSIDENCES ===== */
+.res-autocomplete-wrap { display:inline-block; }
+.res-dropdown {
+  position:absolute;
+  top:100%;
+  left:0;
+  right:0;
+  background:#fff;
+  border:1px solid var(--secondary);
+  border-top:none;
+  border-radius:0 0 8px 8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.15);
+  max-height:260px;
+  overflow-y:auto;
+  z-index:9999;
+  min-width:280px;
+}
+.res-dropdown-item {
+  padding:9px 14px;
+  cursor:pointer;
+  font-size:13px;
+  color:var(--text);
+  border-bottom:1px solid #f1f5f9;
+  transition:background .12s;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.res-dropdown-item:last-child { border-bottom:none; }
+.res-dropdown-item:hover, .res-dropdown-item.selected { background:var(--secondary); color:#fff; }
+.res-dropdown-item.all-option { color:#94a3b8; font-style:italic; }
+.res-dropdown-item mark { background:#fff3b0; color:inherit; font-weight:700; border-radius:2px; }
+
 </style>
 </head>
 <body>
@@ -307,12 +341,24 @@ body.readonly .readonly-badge { display:flex !important }
       <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;background:#2980b9;border-radius:2px"></span> Appareil uniquement</span>
     </div>
     <div class="res-progress-list" id="dashResidences"></div>
+    <div style="margin-top:20px;padding:14px 18px;background:#fff;border-radius:10px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <b style="color:var(--primary)">🔧 Synchroniser les interventions</b>
+        <div style="font-size:12px;color:#888;margin-top:2px">Lit <b>directement Firebase</b> et génère une intervention pour chaque entretien "Fait" sans intervention associée.</div>
+      </div>
+      <button onclick="regenerateInterventions()" style="background:var(--success);color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(39,174,96,.3)">⚙️ Générer les interventions depuis Firebase</button>
+    </div>
   </div>
 
   <!-- RESIDENCES -->
   <div id="tab-residences" class="tab-panel">
     <div class="search-bar">
       <input type="text" id="searchInput" placeholder="🔍 Rechercher locataire, référence..." oninput="applyFilter()">
+      <div class="res-autocomplete-wrap" style="position:relative;flex:1;min-width:200px">
+        <input type="text" id="filterResInput" placeholder="🏘️ Filtrer par résidence..." oninput="filterResAutocomplete('filterResInput','filterResHidden','applyFilter')" onfocus="showResDropdown('filterResInput','filterResDropdown')" autocomplete="off" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white)">
+        <input type="hidden" id="filterResHidden" value="">
+        <div id="filterResDropdown" class="res-dropdown" style="display:none"></div>
+      </div>
       <select id="filterStatus" onchange="applyFilter()">
         <option value="all">Tous les statuts</option>
         <option value="done">✅ Fait</option>
@@ -336,9 +382,11 @@ body.readonly .readonly-badge { display:flex !important }
         <h2>👤 Locataires</h2>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="locSearchInput" placeholder="🔍 Rechercher..." oninput="renderLocatairesTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;min-width:220px">
-          <select id="locFilterRes" onchange="renderLocatairesTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white)">
-            <option value="">Toutes les résidences</option>
-          </select>
+          <div class="res-autocomplete-wrap" style="position:relative">
+            <input type="text" id="locFilterResInput" placeholder="🏘️ Toutes les résidences..." oninput="filterResAutocomplete('locFilterResInput','locFilterRes','renderLocatairesTable')" onfocus="showResDropdown('locFilterResInput','locFilterResDropdown')" autocomplete="off" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white);min-width:200px">
+            <input type="hidden" id="locFilterRes" value="">
+            <div id="locFilterResDropdown" class="res-dropdown" style="display:none"></div>
+          </div>
           <select id="locSortBy" onchange="renderLocatairesTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white)">
             <option value="nom">Trier : Nom A→Z</option>
             <option value="nom_desc">Trier : Nom Z→A</option>
@@ -362,9 +410,11 @@ body.readonly .readonly-badge { display:flex !important }
         <h2>💨 Équipements VMC</h2>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="equipSearchInput" placeholder="🔍 Rechercher résidence, équipement..." oninput="renderEquipementsTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;min-width:220px">
-          <select id="equipFilterRes" onchange="renderEquipementsTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white)">
-            <option value="">Toutes les résidences</option>
-          </select>
+          <div class="res-autocomplete-wrap" style="position:relative">
+            <input type="text" id="equipFilterResInput" placeholder="🏘️ Toutes les résidences..." oninput="filterResAutocomplete('equipFilterResInput','equipFilterRes','renderEquipementsTable')" onfocus="showResDropdown('equipFilterResInput','equipFilterResDropdown')" autocomplete="off" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white);min-width:200px">
+            <input type="hidden" id="equipFilterRes" value="">
+            <div id="equipFilterResDropdown" class="res-dropdown" style="display:none"></div>
+          </div>
           <select id="equipFilterStatus" onchange="renderEquipementsTable()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white)">
             <option value="all">Tous les statuts</option>
             <option value="done">✅ Entretenus</option>
@@ -381,9 +431,11 @@ body.readonly .readonly-badge { display:flex !important }
     <div class="toolbar">
       <div class="search-bar" style="margin-bottom:0;flex:1">
         <input type="text" id="chaudSearchInput" placeholder="🔍 Rechercher locataire ou type de chaudière..." oninput="renderChaudieresTable()">
-        <select id="chaudFilterRes" onchange="renderChaudieresTable()">
-          <option value="">Toutes les résidences</option>
-        </select>
+        <div class="res-autocomplete-wrap" style="position:relative">
+          <input type="text" id="chaudFilterResInput" placeholder="🏘️ Toutes les résidences..." oninput="filterResAutocomplete('chaudFilterResInput','chaudFilterRes','renderChaudieresTable')" onfocus="showResDropdown('chaudFilterResInput','chaudFilterResDropdown')" autocomplete="off" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white);min-width:200px">
+          <input type="hidden" id="chaudFilterRes" value="">
+          <div id="chaudFilterResDropdown" class="res-dropdown" style="display:none"></div>
+        </div>
       </div>
       <button class="btn-add" onclick="openChaudModal()" style="margin-left:10px">➕ Ajouter chaudière</button>
     </div>
@@ -395,9 +447,11 @@ body.readonly .readonly-badge { display:flex !important }
     <div class="toolbar">
       <div class="search-bar" style="margin-bottom:0;flex:1">
         <input type="text" id="intervSearchInput" placeholder="🔍 Rechercher locataire, résidence, technicien..." oninput="renderInterventionsTable()">
-        <select id="intervFilterRes" onchange="renderInterventionsTable()">
-          <option value="">Toutes les résidences</option>
-        </select>
+        <div class="res-autocomplete-wrap" style="position:relative">
+          <input type="text" id="intervFilterResInput" placeholder="🏘️ Toutes les résidences..." oninput="filterResAutocomplete('intervFilterResInput','intervFilterRes','renderInterventionsTable')" onfocus="showResDropdown('intervFilterResInput','intervFilterResDropdown')" autocomplete="off" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--white);min-width:200px">
+          <input type="hidden" id="intervFilterRes" value="">
+          <div id="intervFilterResDropdown" class="res-dropdown" style="display:none"></div>
+        </div>
         <select id="intervFilterPeriod" onchange="renderInterventionsTable()">
           <option value="">Toute période</option>
           <option value="7">7 derniers jours</option>
@@ -413,6 +467,7 @@ body.readonly .readonly-badge { display:flex !important }
         </select>
       </div>
       <button class="btn-add" onclick="openIntervModal()">➕ Ajouter intervention</button>
+      <button onclick="regenerateInterventions()" style="background:var(--warning);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;margin-left:6px">⚙️ Générer depuis les entretiens</button>
     </div>
     <div id="intervStatsContainer" style="margin-bottom:16px"></div>
     <div id="interventionsTableContainer"></div>
@@ -811,26 +866,58 @@ const SEED_LOC_OVERRIDES = {};
 
 function seedInitialData() {
   db.ref('lot4_seeded').once('value').then(snap => {
-    console.log('Seeding initial data (force)...');
+    if (snap.val()) return; // déjà seedé, ne pas re-générer les interventions
+    console.log('Seeding initial data...');
     const updates = {};
     // Statuts entretiens
     Object.entries(SEED_LOT1).forEach(([k, v]) => {
       updates['lot4/' + k] = v;
     });
-    // Interventions
+    // Interventions SEED manuelles (vides par défaut)
     Object.entries(SEED_INTERVENTIONS).forEach(([k, v]) => {
-      updates['lot1_interventions/' + k] = v;
+      updates['lot4_interventions/' + k] = v;
+    });
+    // Générer automatiquement une intervention pour chaque entrée SEED_LOT1 qui est "done"
+    Object.entries(SEED_LOT1).forEach(([k, v]) => {
+      if (!v.done) return;
+      // Retrouver resIdx/locIdx depuis la clé "rX_lY"
+      const m = k.match(/^r(\d+)_l(\d+)$/);
+      if (!m) return;
+      const ri = parseInt(m[1]);
+      const li = parseInt(m[2]);
+      const res = RESIDENCES_DATA[ri];
+      const loc = res && res.locataires[li];
+      if (!res || !loc) return;
+      const locNom = (loc.prenom || '') + (loc.prenom && loc.nom ? ' ' : '') + (loc.nom || loc.ref || k);
+      const uid = 'seed_' + k;
+      updates['lot4_interventions/' + uid] = {
+        resIdx: ri,
+        locIdx: li,
+        locNom: locNom.trim() || k,
+        resNom: res.nom,
+        chaudiere: loc.chaudiere || '',
+        date: v.date || '',
+        technicien: v.doneBy === 'import-excel' ? '' : (v.doneBy || ''),
+        type: 'Entretien annuel chaudière',
+        resultat: 'ok',
+        comment: v.comment || '',
+        createdAt: v.doneAt || new Date().toISOString(),
+        createdBy: 'import-excel',
+        updatedAt: v.doneAt || new Date().toISOString(),
+        updatedBy: 'import-excel'
+      };
     });
     // Dates entretien dans fiches locataires (champ par champ pour ne pas écraser)
     Object.entries(SEED_LOC_OVERRIDES).forEach(([k, v]) => {
       Object.entries(v).forEach(([field, val]) => {
-        updates['lot1_locataires/' + k + '/' + field] = val;
+        updates['lot4_locataires/' + k + '/' + field] = val;
       });
     });
     updates['lot4_seeded'] = true;
     db.ref().update(updates).then(() => {
-      console.log('Seed terminé: ' + Object.keys(SEED_LOT1).length + ' entretiens + ' + Object.keys(SEED_INTERVENTIONS).length + ' interventions');
-      showToast('✅ ' + Object.keys(SEED_LOT1).length + ' entretiens chargés avec dates prochaine visite');
+      const nbInterv = Object.keys(SEED_LOT1).filter(k => SEED_LOT1[k].done).length;
+      console.log('Seed terminé: ' + Object.keys(SEED_LOT1).length + ' entretiens + ' + nbInterv + ' interventions auto-générées');
+      showToast('✅ ' + Object.keys(SEED_LOT1).length + ' entretiens + ' + nbInterv + ' interventions chargés');
     });
   });
 }
@@ -968,7 +1055,7 @@ function renderDashboard() {
     const resType = RES_TYPES[res.nom] || 'appar_ramon_vmc';
     const vmcInfo = VMC_COUNTS[res.nom] || null;
     const vmcTotal = vmcInfo ? (vmcInfo.vmc + vmcInfo.extracteur) : 0;
-    // VMC done = tracked via lot1_vmc_equip/{ri}_{j}
+    // VMC done = tracked via lot4_vmc_equip/{ri}_{j}
     let vmcDone = 0;
     for (let j = 0; j < vmcTotal; j++) {
       const vk = `vmc_${ri}_${j}`;
@@ -1040,6 +1127,7 @@ function goToResidence(ri) {
 function renderAccordion() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const st = document.getElementById('filterStatus').value;
+  const filterResIdx = document.getElementById('filterResHidden')?.value;
   const cont = document.getElementById('accordionContainer');
   
   // Remember open state
@@ -1051,6 +1139,8 @@ function renderAccordion() {
   cont.innerHTML = '';
   
   RESIDENCES_DATA.forEach((res, ri) => {
+    // Filtre par résidence (autocomplete)
+    if (filterResIdx !== '' && filterResIdx !== undefined && String(ri) !== String(filterResIdx)) return;
     let rows = '';
     let count = 0, shown = 0;
     res.locataires.forEach((loc, li) => {
@@ -1079,7 +1169,15 @@ function renderAccordion() {
       const emailLink = loc.email ? `<a href="mailto:${loc.email}" style="color:var(--secondary);font-size:11px">${loc.email}</a>` : '—';
       const dateStr = d.date || '';
       const locOver = locOverrides[getKey(ri, li)] || {};
-      const prochainDate = locOver.dateProchainEntretien || '';
+      // Prochain entretien : valeur manuelle ou date réalisation + 1 an automatiquement
+      let prochainDate = locOver.dateProchainEntretien || '';
+      if (!prochainDate && dateStr) {
+        const d1 = parseDateFlex(dateStr);
+        if (d1) {
+          d1.setFullYear(d1.getFullYear() + 1);
+          prochainDate = d1.toISOString().slice(0, 10);
+        }
+      }
       const commentStr = d.comment ? `<br><span style="color:#888;font-size:11px">💬 ${d.comment}</span>` : '';
       // Get chaudière (from locOverrides or static)
       const chaudiereVal = getLocChaudiere(ri, li);
@@ -1173,6 +1271,10 @@ function renderAccordion() {
 }
 
 function applyFilter() { renderAccordion(); }
+function getFilterResValue(hiddenId) {
+  const el = document.getElementById(hiddenId);
+  return el ? el.value : '';
+}
 
 window.toggleRes = function(header) {
   const body = header.nextElementSibling;
@@ -1203,10 +1305,47 @@ window.showTab = function(tab, btn) {
 window.toggleDone = function(key, val) {
   if (isReadOnly) return;
   const updates = {};
-  updates[`lot1/${key}/done`] = val;
+  const now = new Date().toISOString();
+  updates[`lot4/${key}/done`] = val;
   if (val) {
-    updates[`lot1/${key}/doneAt`] = new Date().toISOString();
-    updates[`lot1/${key}/doneBy`] = currentUser ? currentUser.email : '';
+    updates[`lot4/${key}/doneAt`] = now;
+    updates[`lot4/${key}/doneBy`] = currentUser ? currentUser.email : '';
+    // Créer une intervention automatique si aucune n'existe déjà pour cette clé
+    const existingInterv = Object.values(intervData || {}).find(i => {
+      const m = key.match(/^r(\d+)_l(\d+)$/);
+      return m && i.resIdx == parseInt(m[1]) && i.locIdx == parseInt(m[2]);
+    });
+    if (!existingInterv) {
+      const m = key.match(/^r(\d+)_l(\d+)$/);
+      if (m) {
+        const ri = parseInt(m[1]), li = parseInt(m[2]);
+        const res = RESIDENCES_DATA[ri];
+        const loc = res && res.locataires[li];
+        const override = (locOverrides && locOverrides[key]) || {};
+        const merged = loc ? {...loc, ...override} : override;
+        const locNom = ((merged.prenom || '') + ' ' + (merged.nom || merged.ref || key)).trim();
+        const today = new Date().toISOString().slice(0, 10);
+        const uid = 'auto_' + key + '_' + Date.now().toString(36);
+        updates[`lot4_interventions/${uid}`] = {
+          resIdx: ri, locIdx: li,
+          locNom: locNom || key,
+          resNom: res ? res.nom : '',
+          chaudiere: getLocChaudiere ? getLocChaudiere(ri, li) : (merged.chaudiere || ''),
+          date: today,
+          technicien: currentUser ? currentUser.email : '',
+          type: 'Entretien annuel chaudière',
+          resultat: 'ok',
+          comment: '',
+          createdAt: now, createdBy: currentUser?.email || '',
+          updatedAt: now, updatedBy: currentUser?.email || ''
+        };
+        // Date prochain entretien = aujourd'hui + 1 an
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        updates[`lot4_locataires/${key}/dateProchainEntretien`] = nextYear.toISOString().slice(0, 10);
+        updates[`lot4/${key}/date`] = today;
+      }
+    }
   }
   db.ref().update(updates);
   showToast(val ? '✅ Entretien marqué comme fait !' : 'Statut annulé');
@@ -1224,12 +1363,181 @@ window.closeModal = function() {
   currentModalKey = null;
 }
 
+
+// ===================== REGENERATION INTERVENTIONS =====================
+window.regenerateInterventions = function() {
+  if (isReadOnly) return;
+  if (!confirm('Générer les interventions pour TOUS les entretiens "Fait" ?\nLes interventions existantes ne seront pas touchées.')) return;
+
+  showToast('⏳ Lecture Firebase en cours...');
+
+  Promise.all([
+    db.ref('lot4').once('value'),
+    db.ref('lot4_interventions').once('value'),
+    db.ref('lot4_locataires').once('value')
+  ]).then(([lot4Snap, intervSnap, locSnap]) => {
+    const lot4     = lot4Snap.val()  || {};
+    const existInt = intervSnap.val() || {};
+    const locDB    = locSnap.val()   || {};
+
+    console.log('[REGEN] lot4 entries:', Object.keys(lot4).length);
+    console.log('[REGEN] existing interventions:', Object.keys(existInt).length);
+
+    // Index existant : "ri_li"
+    const existingKeys = new Set();
+    Object.values(existInt).forEach(i => {
+      if (i.resIdx !== undefined && i.locIdx !== undefined)
+        existingKeys.add(i.resIdx + '_' + i.locIdx);
+    });
+
+    const toWrite = []; // [{path, value}]
+    const now = new Date().toISOString();
+    let count = 0;
+
+    Object.entries(lot4).forEach(([k, v]) => {
+      if (!v || !v.done) return;
+      const m = k.match(/^r(\d+)_l(\d+)$/);
+      if (!m) return;
+      const ri = parseInt(m[1]);
+      const li = parseInt(m[2]);
+
+      if (existingKeys.has(ri + '_' + li)) return; // déjà présente
+
+      const res = RESIDENCES_DATA[ri];
+      if (!res) return;
+      const loc = res.locataires ? res.locataires[li] : null;
+      const over = locDB[k] || {};
+      const merged = loc ? {...loc, ...over} : over;
+
+      const prenom = merged.prenom || '';
+      const nom    = merged.nom || merged.ref || loc?.ref || k;
+      const locNom = (prenom + ' ' + nom).trim();
+
+      let chaudiere = '';
+      if (merged.chaudiereKey && chaudData?.[merged.chaudiereKey])
+        chaudiere = chaudData[merged.chaudiereKey].nom || '';
+      else
+        chaudiere = merged.chaudiere || '';
+
+      const dateReal = v.date || '';
+      let dateProchain = '';
+      const dp = parseDateFlex(dateReal);
+      if (dp) { dp.setFullYear(dp.getFullYear() + 1); dateProchain = dp.toISOString().slice(0,10); }
+
+      const uid = 'gen_' + k + '_' + (++count);
+      toWrite.push({ path: 'lot4_interventions/' + uid, value: {
+        resIdx: ri, locIdx: li,
+        locNom: locNom || k,
+        resNom: res.nom,
+        chaudiere,
+        date: dateReal,
+        technicien: '',
+        type: 'Entretien annuel chaudière',
+        resultat: 'ok',
+        comment: v.comment || '',
+        createdAt: v.doneAt || now,
+        createdBy: 'import-auto',
+        updatedAt: now,
+        updatedBy: currentUser?.email || ''
+      }});
+
+      if (dateProchain)
+        toWrite.push({ path: 'lot4_locataires/' + k + '/dateProchainEntretien', value: dateProchain });
+    });
+
+    console.log('[REGEN] à écrire:', toWrite.length, 'entrées pour', count, 'interventions');
+
+    if (count === 0) {
+      showToast('✅ Toutes les interventions sont déjà présentes !');
+      return;
+    }
+
+    // Écriture en lots de 200 pour éviter la limite Firebase
+    const BATCH = 200;
+    const batches = [];
+    for (let i = 0; i < toWrite.length; i += BATCH) {
+      const chunk = toWrite.slice(i, i + BATCH);
+      const upd = {};
+      chunk.forEach(({path, value}) => upd[path] = value);
+      batches.push(upd);
+    }
+
+    console.log('[REGEN] nombre de lots:', batches.length);
+    showToast('⏳ Écriture de ' + count + ' interventions en ' + batches.length + ' lot(s)...');
+
+    // Exécuter les lots en séquence
+    batches.reduce((p, upd, idx) => p.then(() => {
+      return db.ref().update(upd).then(() => {
+        console.log('[REGEN] lot ' + (idx+1) + '/' + batches.length + ' écrit');
+      });
+    }), Promise.resolve()).then(() => {
+      showToast('✅ ' + count + ' intervention(s) générée(s) !');
+      renderInterventionsTable();
+      renderDashboard();
+    }).catch(err => {
+      showToast('❌ Erreur écriture : ' + err.message);
+      console.error('[REGEN] erreur:', err);
+    });
+
+  }).catch(err => {
+    showToast('❌ Erreur lecture Firebase : ' + err.message);
+    console.error('[REGEN] erreur lecture:', err);
+  });
+};
+
 window.saveComment = function() {
   if (isReadOnly) return;
   if (!currentModalKey) return;
   const c = document.getElementById('modalComment').value.trim();
   const d = document.getElementById('modalDate').value;
-  db.ref(`lot1/${currentModalKey}`).update({ comment: c, date: d });
+  const updates = {};
+  updates[`lot4/${currentModalKey}`] = { comment: c, date: d };
+  // Si une date est renseignée et que l'entretien est fait → créer une intervention si absente
+  const entry = dbData[currentModalKey] || {};
+  if (d && entry.done) {
+    const existingInterv = Object.values(intervData || {}).find(i => {
+      const m = currentModalKey.match(/^r(\d+)_l(\d+)$/);
+      return m && i.resIdx == parseInt(m[1]) && i.locIdx == parseInt(m[2]);
+    });
+    if (!existingInterv) {
+      const m = currentModalKey.match(/^r(\d+)_l(\d+)$/);
+      if (m) {
+        const ri = parseInt(m[1]), li = parseInt(m[2]);
+        const res = RESIDENCES_DATA[ri];
+        const loc = res && res.locataires[li];
+        const override = (locOverrides && locOverrides[currentModalKey]) || {};
+        const merged = loc ? {...loc, ...override} : override;
+        const locNom = ((merged.prenom || '') + ' ' + (merged.nom || merged.ref || currentModalKey)).trim();
+        const uid = 'auto_' + currentModalKey + '_' + Date.now().toString(36);
+        const now = new Date().toISOString();
+        updates[`lot4_interventions/${uid}`] = {
+          resIdx: ri, locIdx: li,
+          locNom: locNom || currentModalKey,
+          resNom: res ? res.nom : '',
+          chaudiere: getLocChaudiere ? getLocChaudiere(ri, li) : (merged.chaudiere || ''),
+          date: d,
+          technicien: currentUser ? currentUser.email : '',
+          type: 'Entretien annuel chaudière',
+          resultat: 'ok',
+          comment: c,
+          createdAt: now, createdBy: currentUser?.email || '',
+          updatedAt: now, updatedBy: currentUser?.email || ''
+        };
+      }
+    } else {
+      // Mettre à jour la date/comment de l'intervention existante
+      const existKey = Object.keys(intervData || {}).find(k => {
+        const i = intervData[k];
+        const m = currentModalKey.match(/^r(\d+)_l(\d+)$/);
+        return m && i.resIdx == parseInt(m[1]) && i.locIdx == parseInt(m[2]);
+      });
+      if (existKey) {
+        updates[`lot4_interventions/${existKey}/date`] = d;
+        updates[`lot4_interventions/${existKey}/comment`] = c;
+      }
+    }
+  }
+  db.ref().update(updates);
   closeModal();
   showToast('💬 Commentaire enregistré !');
 }
@@ -1242,8 +1550,8 @@ function showToast(msg) {
 }
 
 // ===================== LOCATAIRES CRUD =====================
-// Les modifications locataires sont stockées dans Firebase sous lot1_locataires/
-// Structure: lot1_locataires/{resIdx}_{locIdx} = {overrides} ou lot1_locataires/new_{uid} = {nouveau locataire}
+// Les modifications locataires sont stockées dans Firebase sous lot4_locataires/
+// Structure: lot4_locataires/{resIdx}_{locIdx} = {overrides} ou lot4_locataires/new_{uid} = {nouveau locataire}
 
 let locModalMode = null; // 'create' | 'edit'
 let locModalResIdx = null;
@@ -1316,17 +1624,7 @@ function initLocModalSelects() {
     });
   }
   // Filtre résidences pour les tabs
-  ['locFilterRes','chaudFilterRes'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (sel && sel.options.length <= 1) {
-      RESIDENCES_DATA.forEach((res, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = res.nom;
-        sel.appendChild(opt);
-      });
-    }
-  });
+  // locFilterRes et chaudFilterRes sont maintenant des autocompletes (hidden inputs), pas des selects
 }
 
 window.openLocModal = function(resIdx, locIdx, newKey) {
@@ -1541,9 +1839,9 @@ window.saveChaudiere = function() {
     newKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     data.createdAt = data.updatedAt;
     data.createdBy = data.updatedBy;
-    db.ref(`lot1_chaudieres/${newKey}`).set(data);
+    db.ref(`lot4_chaudieres/${newKey}`).set(data);
   } else {
-    db.ref(`lot1_chaudieres/${newKey}`).update(data);
+    db.ref(`lot4_chaudieres/${newKey}`).update(data);
   }
   showToast(isNew ? '✅ Chaudière ajoutée !' : '✅ Chaudière modifiée !');
   closeChaudModal();
@@ -1572,15 +1870,15 @@ window.saveLocataire = function() {
     const ri = parseInt(document.getElementById('locResIdx').value);
     const uid = Date.now().toString(36);
     const newKey = `new_${uid}`;
-    db.ref(`lot1_locataires/${newKey}`).set({ ...data, _resIdx: ri, _resNom: RESIDENCES_DATA[ri].nom });
+    db.ref(`lot4_locataires/${newKey}`).set({ ...data, _resIdx: ri, _resNom: RESIDENCES_DATA[ri].nom });
     showToast('✅ Locataire ajouté !');
   } else if (locModalMode === 'edit') {
     const key = `r${locModalResIdx}_l${locModalLocIdx}`;
-    db.ref(`lot1_locataires/${key}`).update(data);
+    db.ref(`lot4_locataires/${key}`).update(data);
     showToast('✅ Locataire modifié !');
   } else if (locModalMode === 'editnew') {
     const ri = parseInt(document.getElementById('locResIdx').value);
-    db.ref(`lot1_locataires/${locModalNewKey}`).update({ ...data, _resIdx: ri, _resNom: RESIDENCES_DATA[ri].nom });
+    db.ref(`lot4_locataires/${locModalNewKey}`).update({ ...data, _resIdx: ri, _resNom: RESIDENCES_DATA[ri].nom });
     showToast('✅ Locataire modifié !');
   }
   closeLocModal();
@@ -1596,10 +1894,10 @@ window.askDeleteLocataire = function(resIdx, locIdx, newKey) {
   document.getElementById('confirmMsg').textContent = `Supprimer "${nom}" ? Cette action est irréversible.`;
   confirmDeleteFn = () => {
     if (newKey) {
-      db.ref(`lot1_locataires/${newKey}`).update({ _deleted: true });
+      db.ref(`lot4_locataires/${newKey}`).update({ _deleted: true });
     } else {
       const delKey = `del_r${resIdx}_l${locIdx}`;
-      db.ref(`lot1_locataires/${delKey}`).set(true);
+      db.ref(`lot4_locataires/${delKey}`).set(true);
     }
     showToast('🗑️ Locataire supprimé.');
     closeConfirm();
@@ -1652,6 +1950,31 @@ function echeanceInfo(dateStr) {
   return { label, cssClass: 'echeance-ok', badgeClass: 'badge-ok', jours, txt: `Dans ${jours}j` };
 }
 
+// Parse les dates dans tous les formats : YYYY-MM-DD, DD/MM/YYYY, DD/MM/YY, D/M/YY etc.
+function parseDateFlex(str) {
+  if (!str) return null;
+  str = str.trim();
+  // Format ISO : YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const d = new Date(str);
+    return isNaN(d) ? null : d;
+  }
+  // Format DD/MM/YYYY
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const d = new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+    return isNaN(d) ? null : d;
+  }
+  // Format DD/MM/YY ou D/M/YY
+  m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (m) {
+    const year = parseInt(m[3]) + (parseInt(m[3]) < 50 ? 2000 : 1900);
+    const d = new Date(year, parseInt(m[2]) - 1, parseInt(m[1]));
+    return isNaN(d) ? null : d;
+  }
+  return null;
+}
+
 function echeanceBadge(dateStr) {
   if (!dateStr) return '<span style="color:#ccc">—</span>';
   const e = echeanceInfo(dateStr);
@@ -1661,23 +1984,7 @@ function echeanceBadge(dateStr) {
 
 // ===================== ÉQUIPEMENTS VMC =====================
 function initEquipFilterRes() {
-  const sel = document.getElementById('equipFilterRes');
-  if (!sel) return;
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Toutes les résidences</option>';
-  RESIDENCES_DATA.forEach((res, ri) => {
-    const t = RES_TYPES[res.nom] || 'appar_ramon_vmc';
-    const vmcInfo = VMC_COUNTS[res.nom] || null;
-    const vmcCount = vmcInfo ? (vmcInfo.vmc + vmcInfo.extracteur) : 0;
-    const isVmcOnly = t === 'vmc';
-    if (vmcCount > 0 || isVmcOnly) {
-      const opt = document.createElement('option');
-      opt.value = ri;
-      opt.textContent = res.nom;
-      if (String(ri) === current) opt.selected = true;
-      sel.appendChild(opt);
-    }
-  });
+  // equipFilterRes est maintenant un autocomplete (hidden input), pas un select — rien à initialiser
 }
 
 function getEquipements() {
@@ -1998,7 +2305,7 @@ window.closeChaudModal = function() {
 window.deleteChaudiere = function(key) {
   const nom = chaudData[key]?.nom || 'cette chaudière';
   if (confirm(`Supprimer "${nom}" ? Cette action est irréversible.`)) {
-    db.ref(`lot1_chaudieres/${key}`).remove();
+    db.ref(`lot4_chaudieres/${key}`).remove();
     showToast('🗑️ Chaudière supprimée.');
   }
 }
@@ -2081,7 +2388,7 @@ document.getElementById('intervModalOverlay').addEventListener('click', function
 });
 
 // ===================== INTERVENTIONS =====================
-// Stockées dans Firebase sous lot1_interventions/{uid}
+// Stockées dans Firebase sous lot4_interventions/{uid}
 // Structure: { resIdx, locIdx, locNom, resNom, date, technicien, type, resultat, comment, createdAt, createdBy }
 
 let intervData = {}; // toutes les interventions depuis Firebase
@@ -2098,16 +2405,7 @@ function startListeningInterventions() {
 }
 
 function initIntervSelects() {
-  // Filtre résidence dans le tab interventions
-  const selRes = document.getElementById('intervFilterRes');
-  if (selRes && selRes.options.length <= 1) {
-    RESIDENCES_DATA.forEach((res, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = res.nom;
-      selRes.appendChild(opt);
-    });
-  }
+  // intervFilterRes est maintenant un autocomplete (hidden input), pas un select
   // Select résidence dans la modale
   const modalRes = document.getElementById('intervResIdx');
   if (modalRes && modalRes.options.length === 0) {
@@ -2213,16 +2511,16 @@ window.saveIntervention = function() {
   };
 
   if (intervModalKey) {
-    db.ref(`lot1_interventions/${intervModalKey}`).update(data);
+    db.ref(`lot4_interventions/${intervModalKey}`).update(data);
     showToast('✅ Intervention modifiée !');
   } else {
     const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
     data.createdAt = data.updatedAt;
     data.createdBy = data.updatedBy;
-    db.ref(`lot1_interventions/${uid}`).set(data);
-    // Marquer aussi l'entretien comme fait dans lot1/
+    db.ref(`lot4_interventions/${uid}`).set(data);
+    // Marquer aussi l'entretien comme fait dans lot4/
     const k = getKey(ri, li);
-    db.ref(`lot1/${k}`).update({
+    db.ref(`lot4/${k}`).update({
       done: true,
       doneAt: data.createdAt,
       doneBy: data.updatedBy,
@@ -2239,7 +2537,7 @@ window.deleteIntervention = function(key) {
   const d = intervData[key];
   const nom = d?.locNom || 'cette intervention';
   if (confirm(`Supprimer l'intervention pour "${nom}" du ${d?.date || '?'} ?`)) {
-    db.ref(`lot1_interventions/${key}`).remove();
+    db.ref(`lot4_interventions/${key}`).remove();
     showToast('🗑️ Intervention supprimée.');
   }
 }
@@ -2428,7 +2726,7 @@ function saveSuivi() {
     updatedAt: new Date().toISOString(),
     updatedBy: currentUser?.email || ''
   };
-  db.ref('lot1_suivi/' + suiviModalKey).update(data);
+  db.ref('lot4_suivi/' + suiviModalKey).update(data);
   showToast('✅ Suivi contact enregistré !');
   closeSuiviModal();
 }
@@ -2614,7 +2912,7 @@ function saveVmc() {
     updatedBy: currentUser?.email || ''
   };
   if (vmcModalKey) {
-    db.ref('lot1_vmc/' + vmcModalKey).update(data);
+    db.ref('lot4_vmc/' + vmcModalKey).update(data);
     showToast('✅ Fiche VMC mise à jour !');
   } else {
     db.ref('lot4_vmc').push(data);
@@ -2628,7 +2926,7 @@ function deleteVmc(key) {
   const d = vmcData[key];
   const nom = d?.resNom || 'cette VMC';
   if (confirm(`Supprimer la fiche VMC de "${nom}" ?`)) {
-    db.ref('lot1_vmc/' + key).remove();
+    db.ref('lot4_vmc/' + key).remove();
     showToast('🗑️ Fiche VMC supprimée.');
   }
 }
@@ -2700,15 +2998,15 @@ window.saveVmcEquip = function() {
   const date2026 = document.getElementById('vmcDate2026').value;
 
   // Save to locataire override
-  updates['lot1_locataires/' + k + '/dateEntretienVMC'] = dateD;
-  updates['lot1_locataires/' + k + '/dateProchainVMC'] = dateProchain;
-  updates['lot1_locataires/' + k + '/technicienVMC'] = technicien;
-  updates['lot1_locataires/' + k + '/resultatVMC'] = resultat;
-  updates['lot1_locataires/' + k + '/notesVMC'] = notes;
-  updates['lot1_locataires/' + k + '/marque'] = marque;
-  updates['lot1_locataires/' + k + '/serie'] = serie;
-  updates['lot1_locataires/' + k + '/emplacement'] = emplacement;
-  updates['lot1_locataires/' + k + '/dateEntretien2026VMC'] = date2026;
+  updates['lot4_locataires/' + k + '/dateEntretienVMC'] = dateD;
+  updates['lot4_locataires/' + k + '/dateProchainVMC'] = dateProchain;
+  updates['lot4_locataires/' + k + '/technicienVMC'] = technicien;
+  updates['lot4_locataires/' + k + '/resultatVMC'] = resultat;
+  updates['lot4_locataires/' + k + '/notesVMC'] = notes;
+  updates['lot4_locataires/' + k + '/marque'] = marque;
+  updates['lot4_locataires/' + k + '/serie'] = serie;
+  updates['lot4_locataires/' + k + '/emplacement'] = emplacement;
+  updates['lot4_locataires/' + k + '/dateEntretien2026VMC'] = date2026;
 
   // Also mark as done if date filled
   if (dateD) {
@@ -2806,6 +3104,127 @@ document.getElementById('vmcModalOverlay').addEventListener('click', function(e)
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
+
+// ===== AUTOCOMPLETE RÉSIDENCES =====
+(function() {
+  let activeDropdown = null;
+
+  // Fermer dropdown au clic extérieur
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.res-autocomplete-wrap')) closeAllDropdowns();
+  });
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.res-dropdown').forEach(d => { d.style.display = 'none'; });
+    activeDropdown = null;
+  }
+
+  window.showResDropdown = function(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
+    buildDropdown(input, dropdown, inputId);
+    dropdown.style.display = 'block';
+    activeDropdown = dropdownId;
+  };
+
+  window.filterResAutocomplete = function(inputId, hiddenId, callbackName) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    const dropdownId = inputId.replace('Input', 'Dropdown').replace('ResInput','ResDropdown');
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !hidden || !dropdown) return;
+
+    // Si l'input est vidé → reset filtre
+    if (!input.value.trim()) {
+      hidden.value = '';
+      if (window[callbackName]) window[callbackName]();
+    }
+    buildDropdown(input, dropdown, inputId, callbackName, hiddenId);
+    dropdown.style.display = 'block';
+  };
+
+  function buildDropdown(input, dropdown, inputId, callbackName, hiddenId) {
+    const q = (input.value || '').toLowerCase().trim();
+    const matches = [];
+
+    // Option "Toutes"
+    matches.push({ idx: '', label: 'Toutes les résidences', isAll: true });
+
+    RESIDENCES_DATA.forEach((res, i) => {
+      if (!q || res.nom.toLowerCase().includes(q)) {
+        matches.push({ idx: i, label: res.nom, isAll: false });
+      }
+    });
+
+    dropdown.innerHTML = '';
+    if (matches.length === 0) {
+      dropdown.innerHTML = '<div class="res-dropdown-item" style="color:#aaa">Aucun résultat</div>';
+      return;
+    }
+
+    matches.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'res-dropdown-item' + (m.isAll ? ' all-option' : '');
+      // Highlight matching text
+      if (q && !m.isAll) {
+        const idx = m.label.toLowerCase().indexOf(q);
+        if (idx >= 0) {
+          div.innerHTML = m.label.slice(0, idx) + '<mark>' + m.label.slice(idx, idx + q.length) + '</mark>' + m.label.slice(idx + q.length);
+        } else {
+          div.textContent = m.label;
+        }
+      } else {
+        div.textContent = m.label;
+      }
+      div.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        // Set values
+        const hid = hiddenId || (inputId.replace('Input','').replace('Res','FilterRes').replace('filter','filter') );
+        const inp = document.getElementById(inputId);
+        const hdn = document.getElementById(hiddenId || hid);
+        if (inp) inp.value = m.isAll ? '' : m.label;
+        if (hdn) hdn.value = m.isAll ? '' : String(m.idx);
+        dropdown.style.display = 'none';
+        // Trigger callback
+        const cb = callbackName || inp?.getAttribute('oninput')?.match(/filterResAutocomplete\('[^']+','[^']+','([^']+)'/)?.[1];
+        if (cb && window[cb]) window[cb]();
+        else if (callbackName && window[callbackName]) window[callbackName]();
+      });
+      dropdown.appendChild(div);
+    });
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (!activeDropdown) return;
+    const dropdown = document.getElementById(activeDropdown);
+    if (!dropdown || dropdown.style.display === 'none') return;
+    const items = dropdown.querySelectorAll('.res-dropdown-item');
+    const current = dropdown.querySelector('.res-dropdown-item.selected');
+    let idx = Array.from(items).indexOf(current);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (current) current.classList.remove('selected');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('selected');
+      items[idx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (current) current.classList.remove('selected');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('selected');
+      items[idx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (current) current.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      closeAllDropdowns();
+    } else if (e.key === 'Escape') {
+      closeAllDropdowns();
+    }
+  });
+})();
+
 </script>
 </body>
 </html>
