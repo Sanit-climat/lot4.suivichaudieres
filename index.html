@@ -31623,10 +31623,11 @@ const SEED_LOC_OVERRIDES = {"r0_l0":{"nom":"EL HARRAK MOHAMED / EM HARRAK SORAYA
 
 function seedInitialData() {
   db.ref('lot4').once('value').then(snap => {
-    if (snap.exists() && snap.numChildren() > 100) {
-      console.log('Déjà seedé, skip.');
+    if (snap.exists() && snap.numChildren() >= 1808) {
+      console.log('Déjà seedé (' + snap.numChildren() + ' entrées), skip.');
       return;
     }
+    console.log('Seed nécessaire: ' + snap.numChildren() + ' entrées trouvées, besoin de 1808...');
     console.log('Seeding initial data...');
     const updates = {};
     Object.entries(SEED_LOT4).forEach(([k, v]) => {
