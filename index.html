@@ -31827,9 +31827,20 @@ function renderDashboard() {
     if (!res._fbKey && window._deletedResidences && window._deletedResidences[ri]) return;
     const t = res.locataires.length;
     let d = 0;
-    res.locataires.forEach((_, li) => {
+    res.locataires.forEach((loc, li) => {
       const k = getKey(ri, li);
-      if (dbData[k] && dbData[k].done) d++;
+      const _ovr_d = locOverrides[k] || {};
+      const _nxt_d = _ovr_d.dateProchainEntretien || '';
+      const _nxtYr_d = _nxt_d ? parseInt(_nxt_d.slice(0,4)) : 0;
+      const isDone_d = !!(dbData[k]?.done)
+        || !!(SEED_LOT4[k]?.done && dbData[k]?.done !== false)
+        || !!_ovr_d.done
+        || !!(loc.dateEntretienPrec)
+        || !!(loc.dateEntretien2026)
+        || !!(_ovr_d.dateEntretienPrec && _ovr_d.dateEntretienPrec !== '')
+        || !!(_ovr_d.dateEntretien2026 && _ovr_d.dateEntretien2026 !== '')
+        || (_nxtYr_d >= 2027);
+      if (isDone_d) d++;
     });
     const p = t > 0 ? Math.round(d / t * 100) : 0;
     // Compute VMC progress
@@ -31949,7 +31960,7 @@ function renderAccordion() {
       const _ovr = locOverrides[k] || {};
       const _nxt = _ovr.dateProchainEntretien || '';
       const _nxtYr = _nxt ? parseInt(_nxt.slice(0,4)) : 0;
-      const isDone = !!d.done || !!(SEED_LOT4[k]?.done && d.done !== false) || !!_ovr.done || !!(_ovr.dateEntretienPrec && _ovr.dateEntretienPrec !== '') || !!(_ovr.dateEntretien2026 && _ovr.dateEntretien2026 !== '') || (_nxtYr >= 2027);
+      const isDone = !!d.done || !!(SEED_LOT4[k]?.done && d.done !== false) || !!_ovr.done || !!(loc.dateEntretienPrec) || !!(loc.dateEntretien2026) || !!(_ovr.dateEntretienPrec && _ovr.dateEntretienPrec !== '') || !!(_ovr.dateEntretien2026 && _ovr.dateEntretien2026 !== '') || (_nxtYr >= 2027);
       count++;
       
       // Filter
