@@ -38942,7 +38942,13 @@ MAIL ENVOYER LE 16/04/26&#39;,&#39;2026-04-15&#39;)" style="margin-left:4px">�
   <div class="loc-modal-grid">
     <div class="form-field">
       <label>RÉSIDENCE *</label>
-      <select id="vmcResIdx"><option value="0">DANTON – Marseille 13003</option><option value="1">EDOUARD VAILLANT – Marseille 13003</option><option value="2">FONSCOLOMBES – Marseille 13003</option><option value="3">HONNORAT – Marseille 13003</option><option value="4">JARDINS DE LA VILLETTE – Marseille 13003</option><option value="5">LA CLEMENTINE – Marseille 13011</option><option value="6">1 RUE DANTON – Marseille 13003</option><option value="7">30 RUE DANTON – Marseille 13003</option><option value="8">STRASBOURG – Marseille 13003</option><option value="9">BOULEVARD DES DAMES – Marseille 13002</option><option value="10">BELLEVUE – Marseille 13003</option><option value="11">CRIMEE – Marseille 13003</option><option value="12">LES FAIENCIERS – Marseille 13011</option><option value="13">LA MOULARDE – Marseille 13012</option><option value="14">81 RUE LOUBON – Marseille 13003</option><option value="15">AIR BEL – Marseille 13011</option><option value="16">ARGO – Marseille 13002</option><option value="17">BD NATIONAL – Marseille 13003</option><option value="18">CARMELINS – Marseille 13002</option><option value="19">DUVERGER – Marseille 13002</option><option value="20">FIACRE – Marseille 13002</option><option value="21">FORBIN – Marseille 13003</option><option value="22">FRANCOIS BARBINI – Marseille 13003</option><option value="23">LA PASTORALE – Marseille 13011</option><option value="24">LA SCALA – Marseille 13003</option><option value="25">LA VALBARELLE – Marseille 13011</option><option value="26">LE PLEIN SUD – Marseille 13011</option><option value="27">LE SOLEA MASSABO – Marseille 13002</option><option value="28">LES CAMPANULES – Marseille 13011</option><option value="29">LES JARDINS D'HERMES – Marseille 13003</option><option value="30">LES JARDINS DU GENIE – Marseille 13003</option><option value="31">LOU PASTRE – Marseille 13011</option><option value="32">MAZENOD N°48 – Marseille 13002</option><option value="33">NATIONAL – Marseille 13003</option><option value="34">PARC BEL OMBRE – Marseille 13011</option><option value="35">PARC BELLEVUE – Marseille 13002</option><option value="36">PARC DES 7 COLLINES – Marseille 13011</option><option value="37">RESIDENCE MADE IN MEDITERRANEE – Marseille 13003</option><option value="38">RESIDENCE MANON – Marseille 13003</option><option value="39">RESIDENCE OPALE – Marseille 13003</option><option value="40">RESIDENCE PLOMBIERES – Marseille 13003</option><option value="41">RESIDENCE SAINT CHARLES – Marseille 13003</option><option value="42">RESIDENCE VAN GOGH 1 – Marseille 13012</option><option value="43">RESIDENCE VAN GOGH 2 – Marseille 13012</option><option value="44">RUE BARBINI – Marseille 13003</option><option value="45">RUE BON PASTEUR N°08 – Marseille 13002</option><option value="46">RUE DES PHOCEENS – Marseille 13002</option><option value="47">RUE MAZENOD N°30 – Marseille 13002</option><option value="48">RUE PONTEVES N°10 – Marseille 13002</option><option value="49">RUE PONTEVES N°12 – Marseille 13002</option><option value="50">SALENGRO 1 – Marseille 13003</option><option value="51">ST MARCEL RUE DES CROTTES – Marseille 13011</option></select>
+      <div class="ss-wrap" id="vmcResIdxWrap" style="width:100%"></div><input type="hidden" id="vmcResIdx" value="0">
+    </div>
+    <div class="form-field" id="vmcEquipLinkField">
+      <label>ÉQUIPEMENT CONCERNÉ <span style="color:#94a3b8;font-weight:400">(optionnel)</span></label>
+      <select id="vmcEquipLink" onchange="onVmcEquipLinkChange()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--white)">
+        <option value="">— Nouvelle entrée (non liée) —</option>
+      </select>
     </div>
     <div class="form-field">
       <label>EMPLACEMENT (TOITURE)</label>
@@ -39700,7 +39706,7 @@ function renderAccordion() {
       if (st === 'done' && !isDone) return;
       if (st === 'todo' && isDone) return;
       if (q) {
-        const haystack = (loc.nom + loc.ref + loc.lgt + loc.bat + loc.etage + loc.adresse).toLowerCase();
+        const haystack = (loc.nom + loc.ref + loc.lgt + loc.bat + loc.etage + loc.adresse + ' ' + res.nom).toLowerCase();
         if (!haystack.includes(q)) return;
       }
       shown++;
@@ -41722,19 +41728,104 @@ function startListeningVmc() {
   });
 }
 
+// Peuple le dropdown "Équipement concerné" en fonction de la résidence sélectionnée
+function populateVmcEquipLink(ri, selectedKey) {
+  const sel = document.getElementById('vmcEquipLink');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Nouvelle entrée (non liée) —</option>';
+  if (ri === undefined || ri === null || ri === '' || isNaN(ri)) return;
+  // getEquipements() renvoie tous les équipements VMC
+  let equips = [];
+  try { equips = getEquipements(); } catch(e) { equips = []; }
+  const filtered = equips.filter(e => Number(e.ri) === Number(ri));
+  filtered.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.k;
+    opt.textContent = e.nom + ' (' + e.type + (e.ref ? ' – ' + e.ref : '') + ')';
+    if (selectedKey && selectedKey === e.k) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Quand l'utilisateur change l'équipement lié, pré-remplir les champs depuis ses données
+function onVmcEquipLinkChange() {
+  const sel = document.getElementById('vmcEquipLink');
+  if (!sel) return;
+  const k = sel.value;
+  if (!k) return;
+  // Trouver les données de l'équipement
+  let equips = [];
+  try { equips = getEquipements(); } catch(e) { equips = []; }
+  const eq = equips.find(e => e.k === k);
+  if (!eq) return;
+  // Charger les overrides du locataire/équipement
+  const ov = (typeof locOverrides !== 'undefined' && locOverrides[k]) ? locOverrides[k] : {};
+  const dEq = (typeof dbData !== 'undefined' && dbData[k]) ? dbData[k] : {};
+  // Pré-remplir les champs vides uniquement (ne pas écraser ce que l'utilisateur a déjà saisi)
+  const empl = document.getElementById('vmcEmplacement');
+  if (empl && !empl.value) empl.value = ov.emplacement || eq.nom || '';
+  const marque = document.getElementById('vmcMarque');
+  if (marque && !marque.value) marque.value = ov.marque || '';
+  const serie = document.getElementById('vmcSerie');
+  if (serie && !serie.value) serie.value = ov.serie || '';
+  const dateD = document.getElementById('vmcDateDernier');
+  if (dateD && !dateD.value) dateD.value = ov.dateEntretienVMC || dEq.date || '';
+  const date2026 = document.getElementById('vmcDate2026');
+  if (date2026 && !date2026.value) date2026.value = ov.dateEntretien2026VMC || '';
+  const dateP = document.getElementById('vmcDateProchain');
+  if (dateP && !dateP.value) dateP.value = ov.dateProchainVMC || '';
+  const tech = document.getElementById('vmcTechnicien');
+  if (tech && !tech.value) tech.value = ov.technicienVMC || '';
+  const res = document.getElementById('vmcResultat');
+  if (res && !res.value) res.value = ov.resultatVMC || '';
+}
+
+// Helper : initialise/met à jour le select cherchable de résidence dans la modal VMC
+// et synchronise l'input caché #vmcResIdx pour rester compatible avec le code existant.
+function initVmcResSelect(currentValue, disabled) {
+  const opts = RESIDENCES_DATA.map((r, i) => ({ value: i, label: r.nom }));
+  const hidden = document.getElementById('vmcResIdx');
+  // Initialiser l'état au currentValue (avant que le ss soit rebuild)
+  if (currentValue !== undefined && currentValue !== null && currentValue !== '') {
+    const label = (RESIDENCES_DATA[Number(currentValue)] || {}).nom || '';
+    _ssState['vmcResIdxWrap'] = { value: String(currentValue), label: label };
+    if (hidden) hidden.value = String(currentValue);
+  } else {
+    _ssState['vmcResIdxWrap'] = { value: '0', label: (RESIDENCES_DATA[0] || {}).nom || '— Sélectionner —' };
+    if (hidden) hidden.value = '0';
+  }
+  createSearchableSelect('vmcResIdxWrap', opts, '— Sélectionner une résidence —', val => {
+    if (hidden) hidden.value = val;
+    // Mettre à jour le dropdown "Équipement concerné"
+    populateVmcEquipLink(val, null);
+  });
+  // Pour les cas où on ouvre en mode édition d'équipement (sel.disabled = true), désactiver visuellement
+  const wrap = document.getElementById('vmcResIdxWrap');
+  if (wrap) {
+    if (disabled) {
+      wrap.style.pointerEvents = 'none';
+      wrap.style.opacity = '0.6';
+    } else {
+      wrap.style.pointerEvents = '';
+      wrap.style.opacity = '';
+    }
+  }
+}
+
 function openVmcModal(key) {
   vmcModalKey = key || null;
   window._creatingNewEquip = false;
   window._currentEquipKey = null;
   const title = document.getElementById('vmcModalTitle');
-  // Init residence select
-  const sel = document.getElementById('vmcResIdx');
-  sel.disabled = false;
-  sel.innerHTML = RESIDENCES_DATA.map((r,i)=>`<option value="${i}">${r.nom}</option>`).join('');
+  // Afficher le champ "Équipement concerné"
+  const equipField = document.getElementById('vmcEquipLinkField');
+  if (equipField) equipField.style.display = '';
+  // Init residence select (cherchable)
   if (key && vmcData[key]) {
     const d = vmcData[key];
     title.textContent = '💨 Modifier fiche VMC';
-    sel.value = d.resIdx ?? 0;
+    initVmcResSelect(d.resIdx ?? 0, false);
+    populateVmcEquipLink(d.resIdx ?? 0, d.equipKey || null);
     document.getElementById('vmcEmplacement').value = d.emplacement || '';
     document.getElementById('vmcMarque').value = d.marque || '';
     document.getElementById('vmcSerie').value = d.serie || '';
@@ -41746,6 +41837,8 @@ function openVmcModal(key) {
     document.getElementById('vmcNotes').value = d.notes || '';
   } else {
     title.textContent = '💨 Nouvelle fiche VMC';
+    initVmcResSelect(0, false);
+    populateVmcEquipLink(0, null);
     document.getElementById('vmcEmplacement').value = '';
     document.getElementById('vmcMarque').value = '';
     document.getElementById('vmcSerie').value = '';
@@ -41764,27 +41857,32 @@ function closeVmcModal() {
   vmcModalKey = null;
   window._creatingNewEquip = false;
   window._currentEquipKey = null;
-  // Réactive le select résidence (sera redésactivé si openEquipModal)
-  const selRes = document.getElementById('vmcResIdx');
-  if (selRes) selRes.disabled = false;
+  // Réactive le select résidence
+  const wrap = document.getElementById('vmcResIdxWrap');
+  if (wrap) { wrap.style.pointerEvents = ''; wrap.style.opacity = ''; }
 }
 
 function saveVmc() {
   if (isReadOnly) return;
   const resIdx = parseInt(document.getElementById('vmcResIdx').value);
   const resNom = RESIDENCES_DATA[resIdx]?.nom || '';
+  const equipKey = (document.getElementById('vmcEquipLink')?.value || '').trim();
+  const emplacement = document.getElementById('vmcEmplacement').value.trim();
+  const marque = document.getElementById('vmcMarque').value.trim();
+  const serie = document.getElementById('vmcSerie').value.trim();
+  const dateDernier = document.getElementById('vmcDateDernier').value;
+  const date2026 = document.getElementById('vmcDate2026').value;
+  const dateProchain = document.getElementById('vmcDateProchain').value;
+  const technicien = document.getElementById('vmcTechnicien').value.trim();
+  const resultat = document.getElementById('vmcResultat').value;
+  const notes = document.getElementById('vmcNotes').value.trim();
+
   const data = {
-    resIdx,
-    resNom,
-    emplacement: document.getElementById('vmcEmplacement').value.trim(),
-    marque: document.getElementById('vmcMarque').value.trim(),
-    serie: document.getElementById('vmcSerie').value.trim(),
-    dateDernier: document.getElementById('vmcDateDernier').value,
-    date2026: document.getElementById('vmcDate2026').value,
-    dateProchain: document.getElementById('vmcDateProchain').value,
-    technicien: document.getElementById('vmcTechnicien').value.trim(),
-    resultat: document.getElementById('vmcResultat').value,
-    notes: document.getElementById('vmcNotes').value.trim(),
+    resIdx, resNom,
+    equipKey: equipKey || null,
+    emplacement, marque, serie,
+    dateDernier, date2026, dateProchain,
+    technicien, resultat, notes,
     updatedAt: new Date().toISOString(),
     updatedBy: currentUser?.email || ''
   };
@@ -41794,6 +41892,34 @@ function saveVmc() {
   } else {
     db.ref('lot4_vmc').push(data);
     showToast('✅ Fiche VMC créée !');
+  }
+
+  // SYNCHRONISATION : si un équipement est lié, mettre à jour ses données pour éviter
+  // d'avoir à les saisir une seconde fois dans l'onglet Équipements VMC.
+  if (equipKey) {
+    const overrides = {};
+    if (emplacement) overrides.emplacement = emplacement;
+    if (marque) overrides.marque = marque;
+    if (serie) overrides.serie = serie;
+    if (dateDernier) overrides.dateEntretienVMC = dateDernier;
+    if (date2026) overrides.dateEntretien2026VMC = date2026;
+    if (dateProchain) overrides.dateProchainVMC = dateProchain;
+    if (technicien) overrides.technicienVMC = technicien;
+    if (resultat) overrides.resultatVMC = resultat;
+    if (notes) overrides.notesVMC = notes;
+    if (Object.keys(overrides).length > 0) {
+      db.ref('lot4_locataires/' + equipKey).update(overrides).catch(()=>{});
+    }
+    // Marquer l'équipement comme "fait" si une date d'entretien est renseignée
+    if (dateDernier || date2026) {
+      const doneDate = date2026 || dateDernier;
+      db.ref('lot4/' + equipKey).update({
+        done: true,
+        date: doneDate,
+        doneAt: new Date().toISOString(),
+        doneBy: currentUser?.email || ''
+      }).catch(()=>{});
+    }
   }
   closeVmcModal();
 }
@@ -41842,16 +41968,12 @@ window.openNewEquipModal = function() {
 
   document.getElementById('vmcModalTitle').textContent = '💨 Nouvel équipement VMC';
 
-  // Peupler le select résidence avec TOUTES les résidences
-  const selRes = document.getElementById('vmcResIdx');
-  selRes.innerHTML = '';
-  RESIDENCES_DATA.forEach((res, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = res.nom;
-    selRes.appendChild(opt);
-  });
-  selRes.disabled = false;
+  // Masquer le champ "Équipement concerné" (puisqu'on en crée un nouveau)
+  const equipField = document.getElementById('vmcEquipLinkField');
+  if (equipField) equipField.style.display = 'none';
+
+  // Peupler le select résidence (cherchable) avec TOUTES les résidences
+  initVmcResSelect(0, false);
 
   // Vider tous les champs
   document.getElementById('vmcEmplacement').value = '';
@@ -41935,6 +42057,26 @@ window.saveNewEquip = function() {
       });
     }
 
+    // SYNCHRONISATION : créer une fiche d'intervention dans lot4_vmc liée à cet équipement
+    if (dateD || date2026 || technicien || resultat) {
+      db.ref('lot4_vmc').push({
+        resIdx: ri,
+        resNom: RESIDENCES_DATA[ri].nom,
+        equipKey: newKey,
+        emplacement: emplacement,
+        marque: marque,
+        serie: serie,
+        dateDernier: dateD,
+        date2026: date2026,
+        dateProchain: dateProchain,
+        technicien: technicien,
+        resultat: resultat,
+        notes: notes,
+        updatedAt: new Date().toISOString(),
+        updatedBy: (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.email || '') : ''
+      }).catch(()=>{});
+    }
+
     closeVmcModal();
     window._creatingNewEquip = false;
     if (typeof showToast === 'function') showToast('✅ Équipement VMC créé !');
@@ -41975,19 +42117,12 @@ window.openEquipModal = function(ri, li, k, resNom, equipNom) {
 
   document.getElementById('vmcModalTitle').textContent = '💨 Fiche équipement – ' + equipNom;
 
-  // Fill the VMC modal
-  const selRes = document.getElementById('vmcResIdx');
-  // Populate select if empty
-  if (selRes.options.length <= 1) {
-    RESIDENCES_DATA.forEach((res, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = res.nom;
-      selRes.appendChild(opt);
-    });
-  }
-  selRes.value = ri;
-  selRes.disabled = true;
+  // Masquer le champ "Équipement concerné" (l'équipement est déjà connu)
+  const equipField = document.getElementById('vmcEquipLinkField');
+  if (equipField) equipField.style.display = 'none';
+
+  // Fill the VMC modal (sélecteur cherchable, désactivé car équipement existant)
+  initVmcResSelect(ri, true);
 
   document.getElementById('vmcEmplacement').value = locOver.emplacement || equipNom;
   document.getElementById('vmcMarque').value = locOver.marque || '';
@@ -42044,11 +42179,45 @@ window.saveVmcEquip = function() {
     updates['lot4/' + k + '/doneBy'] = currentUser?.email || '';
   }
 
+  // SYNCHRONISATION : créer ou mettre à jour la fiche d'intervention VMC liée
+  // pour qu'elle apparaisse aussi dans l'onglet "Interventions VMC".
+  if (dateD || date2026 || technicien || resultat) {
+    const ri = window._currentEquipRi;
+    const resNom = (RESIDENCES_DATA[ri] || {}).nom || '';
+    const interventionData = {
+      resIdx: ri,
+      resNom: resNom,
+      equipKey: k,
+      emplacement: emplacement,
+      marque: marque,
+      serie: serie,
+      dateDernier: dateD,
+      date2026: date2026,
+      dateProchain: dateProchain,
+      technicien: technicien,
+      resultat: resultat,
+      notes: notes,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser?.email || ''
+    };
+    // Chercher s'il existe déjà une fiche VMC liée à cet équipement
+    let existingKey = null;
+    if (typeof vmcData !== 'undefined' && vmcData) {
+      for (const [vk, v] of Object.entries(vmcData)) {
+        if (v && v.equipKey === k) { existingKey = vk; break; }
+      }
+    }
+    if (existingKey) {
+      db.ref('lot4_vmc/' + existingKey).update(interventionData).catch(()=>{});
+    } else {
+      db.ref('lot4_vmc').push(interventionData).catch(()=>{});
+    }
+  }
+
   db.ref().update(updates).then(() => {
     showToast('✅ Équipement VMC mis à jour !');
     closeVmcModal();
     window._currentEquipKey = null;
-    selRes.disabled = false;
     if (document.getElementById('tab-equipements').classList.contains('active')) renderEquipementsTable();
   });
 };
